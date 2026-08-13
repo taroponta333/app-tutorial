@@ -7,20 +7,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ★ここを公式のkivy/buildozerに直しました
       - name: Get Buildozer Docker Image
-        run: docker pull culand/buildozer:latest
+        run: docker pull kivy/buildozer:latest
 
       - name: Build and Configure Universal Tools
         run: |
-          docker run --rm -v ${{ github.workspace }}:/home/user/hostculand culand/buildozer:latest init
+          # ★ここもkivy/buildozerに直しました
+          docker run --rm -v ${{ github.workspace }}:/home/user/hostculand -w /home/user/hostculand kivy/buildozer:latest init
           
           sed -i 's/package.domain = org.test/package.domain = com.universal.converter/' buildozer.spec
           sed -i 's/package.name = myapp/package.name = ufc_converter/' buildozer.spec
           
-          # 【全部盛り設定】画像(pillow) と 動画・音声(ffmpeg-python) の両方を同時に組み込む
+          # 全部盛り設定：画像(pillow) と 動画・音声(ffmpeg-python) を同時に組み込む
           sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,ffmpeg-python/' buildozer.spec
           
-          docker run --rm -v ${{ github.workspace }}:/home/user/hostculand culand/buildozer:latest android debug
+          # ★ここもkivy/buildozerに直しました
+          docker run --rm -v ${{ github.workspace }}:/home/user/hostculand -w /home/user/hostculand kivy/buildozer:latest android debug
 
       - name: Upload Universal Converter APK
         uses: actions/upload-artifact@v4
