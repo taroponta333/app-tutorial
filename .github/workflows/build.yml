@@ -3,33 +3,47 @@ on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Python環境をセットアップ
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      # 2. 最初から全部盛り設定の buildozer.spec をその場で作ってしまう
-      - name: Create Buildozer Spec
+      # 1. Androidアプリのビルドに必要な工具（JavaやCのパーツ）をUbuntuに直接インストール
+      # 💡 壊れたPPAを使わず、公式の安全なパッケージだけを入れます
+      - name: Install System Dependencies
         run: |
-          pip install buildozer
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libltdl-dev libffi-dev libssl-dev cmake
+
+      # 2. Buildozerのチェックを回避するため、一時的な「一般ユーザー(builder)」を裏で作成
+      # 💡 これで「rootで動かすな」エラーを完璧にすり抜けます
+      - name: Build APK as non-root user
+        run: |
+          # builderという名前の一般ユーザーを作成
+          sudo useradd -m builder
+          # フォルダの権限を一般ユーザーに渡す
+          sudo chown -R builder:builder $GITHUB_WORKSPACE
+          
+          # 一般ユーザーになりきって、Pythonの工具箱（Buildozer）を準備して実行する
+          sudo -u builder -i bash << 'EOF'
+          cd $GITHUB_WORKSPACE
+          
+          # ツールをインストール
+          pip3 install --user buildozer cython
+          export PATH=$PATH:/home/builder/.local/bin
+          
+          # 設定ファイル(buildozer.spec)を初期化
           buildozer init
+          
+          # 全部盛り設定に変更（アプリ名、 pillow、ffmpeg-python）
           sed -i 's/package.domain = org.test/package.domain = com.universal.converter/' buildozer.spec
           sed -i 's/package.name = myapp/package.name = ufc_converter/' buildozer.spec
           sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,ffmpeg-python/' buildozer.spec
+          
+          # 【本番】一般ユーザーとして安全にAndroidアプリを組み立てる！
+          buildozer android debug
+          EOF
 
-      # 3. ★正しい名前（ArtemSBulgakov）に修正しました。これで一般ユーザーとして安全にビルドされます
-      - name: Build APK with Buildozer Action
-        uses: ArtemSBulgakov/buildozer-action@v1
-        with:
-          command: buildozer android debug
-          repository_root: .
-
-      # 4. 完成したAPKを提出
+      # 3. 完成したAPKを提出
       - name: Upload Universal Converter APK
         uses: actions/upload-artifact@v4
         with:
