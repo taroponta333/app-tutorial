@@ -31,11 +31,9 @@ jobs:
           sed -i 's/package.name = myapp/package.name = ufc_converter/' buildozer.spec
           sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,ffmpeg-python/' buildozer.spec
           
-          # 💡 【今回の修正ポイント】Googleの利用規約（ライセンス）に自動で全合意する魔法の環境変数をセット
-          export ANDROID_LICENSES_AUTO_ACCEPT=y
-          
-          # ビルド実行
-          buildozer android debug
+          # 💡 【今回の修正ポイント】「yes」という文字を無限に自動入力するコマンドを頭に繋げます
+          # これにより、途中で利用規約(y/n)が出ても全て自動で「y」が選択されます
+          yes | buildozer android debug
           EOF
 
       # 3. 完成したAPKを提出
