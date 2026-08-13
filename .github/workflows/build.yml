@@ -7,7 +7,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1. 必要な最低限のシステム工具を入れる（重いアセンブラ等は不要に！）
+      # 1. 必要最低限のシステム工具をインストール
       - name: Install System Dependencies
         run: |
           sudo apt-get update
@@ -15,6 +15,10 @@ jobs:
 
       # 2. 一般ユーザー(builder)を作って超高速ビルドを実行
       - name: Build APK as non-root user
+        # 💡 【核心：今回の修正】環境変数にACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=trueを追加！
+        # これにより、最新Node24のバグを回避し、安全な古い互換環境でBuildozerを完走させます。
+        env:
+          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
         run: |
           sudo useradd -m builder
           sudo chown -R builder:builder $GITHUB_WORKSPACE
@@ -31,11 +35,10 @@ jobs:
           sed -i 's/package.domain = org.test/package.domain = com.universal.converter/' buildozer.spec
           sed -i 's/package.name = myapp/package.name = ufc_converter/' buildozer.spec
           
-          # 💡 【明日の勝利ポイント①】重い「ffmpeg」のCコンパイルレシピを外し、Python用の軽量パッケージだけにする
+          # 既製バイナリを使用（Pillowとffmpeg-pythonだけを材料にする）
           sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,ffmpeg-python/' buildozer.spec
           
-          # 💡 【明日の勝利ポイント②】Android用のコンパイル済みFFmpegバイナリを直接アプリの倉庫(libs)にブち込む設定を追加
-          # これにより、Clangのビルドなしで本物のFFmpegがAPKに100%強制梱包されます！
+          # Android用のコンパイル済みFFmpegバイナリを直接アプリのlibsに投入
           mkdir -p libs/arm64-v8a
           curl -L -o libs/arm64-v8a/libffmpeg.so https://github.com
           sed -i 's/#android.add_libs_arm64_v8a =/android.add_libs_arm64_v8a = libs\/arm64-v8a\/libffmpeg.so/' buildozer.spec
@@ -44,7 +47,7 @@ jobs:
           yes | buildozer android debug
           EOF
 
-      # 3. 完成した、100MBの制限を過去にする最強のAPKを提出
+      # 3. 完成したAPKを提出
       - name: Upload Universal Converter APK
         uses: actions/upload-artifact@v4
         with:
