@@ -7,23 +7,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ★ここを公式のkivy/buildozerに直しました
       - name: Get Buildozer Docker Image
         run: docker pull kivy/buildozer:latest
 
       - name: Build and Configure Universal Tools
         run: |
-          # ★ここもkivy/buildozerに直しました
-          docker run --rm -v ${{ github.workspace }}:/home/user/hostculand -w /home/user/hostculand kivy/buildozer:latest init
+          # 💡 --allow-root を追加して、管理者のまま強制実行させます
+          docker run --rm -v ${{ github.workspace }}:/home/user/hostculand -w /home/user/hostculand kivy/buildozer:latest android debug --allow-root
           
+          # 設定ファイルの初期化が終わったら名前を書き換える
           sed -i 's/package.domain = org.test/package.domain = com.universal.converter/' buildozer.spec
           sed -i 's/package.name = myapp/package.name = ufc_converter/' buildozer.spec
           
           # 全部盛り設定：画像(pillow) と 動画・音声(ffmpeg-python) を同時に組み込む
           sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,ffmpeg-python/' buildozer.spec
           
-          # ★ここもkivy/buildozerに直しました
-          docker run --rm -v ${{ github.workspace }}:/home/user/hostculand -w /home/user/hostculand kivy/buildozer:latest android debug
+          # 本番ビルドにも --allow-root を追加
+          docker run --rm -v ${{ github.workspace }}:/home/user/hostculand -w /home/user/hostculand kivy/buildozer:latest android debug --allow-root
 
       - name: Upload Universal Converter APK
         uses: actions/upload-artifact@v4
