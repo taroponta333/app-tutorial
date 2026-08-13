@@ -13,7 +13,8 @@ jobs:
       - name: Build and Configure Universal Tools
         run: |
           # 1. まずは設定ファイル（buildozer.spec）を正しく作成する
-          docker run --rm -v ${{ github.workspace }}:/home/user/hostculand -w /home/user/hostculand kivy/buildozer:latest init
+          # 💡 手前に「-e BUILDOZER_ALLOW_KIVY_BUILD_FROM_ROOT=1」を足して、rootチェックを強制スルーさせます
+          docker run --rm -v ${{ github.workspace }}:/home/user/hostculand -w /home/user/hostculand -e BUILDOZER_ALLOW_KIVY_BUILD_FROM_ROOT=1 kivy/buildozer:latest init
           
           # 2. 作成された設定ファイルの中身を書き換える
           sed -i 's/package.domain = org.test/package.domain = com.universal.converter/' buildozer.spec
@@ -22,8 +23,8 @@ jobs:
           # 全部盛り設定：画像(pillow) と 動画・音声(ffmpeg-python) を同時に組み込む
           sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,ffmpeg-python/' buildozer.spec
           
-          # 3. 【本番】--allow-rootを最後につけてAPKを組み立てる
-          docker run --rm -v ${{ github.workspace }}:/home/user/hostculand -w /home/user/hostculand kivy/buildozer:latest android debug --allow-root
+          # 3. 【本番】ここでも同様にrootチェックをスルーする設定を入れてビルドします
+          docker run --rm -v ${{ github.workspace }}:/home/user/hostculand -w /home/user/hostculand -e BUILDOZER_ALLOW_KIVY_BUILD_FROM_ROOT=1 kivy/buildozer:latest android debug
 
       - name: Upload Universal Converter APK
         uses: actions/upload-artifact@v4
