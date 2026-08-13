@@ -12,17 +12,14 @@ jobs:
 
       - name: Build and Configure Universal Tools
         run: |
-          # 1. ビルド環境を初期化
           docker run --rm -v ${{ github.workspace }}:/home/user/hostculand culand/buildozer:latest init
           
-          # 2. アプリの名前やIDをカッコよく設定
           sed -i 's/package.domain = org.test/package.domain = com.universal.converter/' buildozer.spec
           sed -i 's/package.name = myapp/package.name = ufc_converter/' buildozer.spec
           
-          # 3. 【超重要】画像・動画・音声に必要なPythonライブラリを全部指定
+          # 【全部盛り設定】画像(pillow) と 動画・音声(ffmpeg-python) の両方を同時に組み込む
           sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,ffmpeg-python/' buildozer.spec
           
-          # 4. APKの組み立て（ビルド）を実行
           docker run --rm -v ${{ github.workspace }}:/home/user/hostculand culand/buildozer:latest android debug
 
       - name: Upload Universal Converter APK
