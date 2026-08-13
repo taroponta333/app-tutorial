@@ -1,4 +1,4 @@
-name: Build APK
+name: Build Universal Converter APK
 on: [push, workflow_dispatch]
 
 jobs:
@@ -10,15 +10,23 @@ jobs:
       - name: Get Buildozer Docker Image
         run: docker pull culand/buildozer:latest
 
-      - name: Build with Buildozer
+      - name: Build and Configure Universal Tools
         run: |
+          # 1. ビルド環境を初期化
           docker run --rm -v ${{ github.workspace }}:/home/user/hostculand culand/buildozer:latest init
-          sed -i 's/package.domain = org.test/package.domain = com.mygame/' buildozer.spec
-          sed -i 's/package.name = myapp/package.name = mininggame/' buildozer.spec
+          
+          # 2. アプリの名前やIDをカッコよく設定
+          sed -i 's/package.domain = org.test/package.domain = com.universal.converter/' buildozer.spec
+          sed -i 's/package.name = myapp/package.name = ufc_converter/' buildozer.spec
+          
+          # 3. 【超重要】画像・動画・音声に必要なPythonライブラリを全部指定
+          sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,ffmpeg-python/' buildozer.spec
+          
+          # 4. APKの組み立て（ビルド）を実行
           docker run --rm -v ${{ github.workspace }}:/home/user/hostculand culand/buildozer:latest android debug
 
-      - name: Upload APK
+      - name: Upload Universal Converter APK
         uses: actions/upload-artifact@v4
         with:
-          name: MiningGame-APK
+          name: UFC-Universal-Converter-APK
           path: bin/*.apk
