@@ -3,7 +3,7 @@ on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -22,9 +22,9 @@ jobs:
           sed -i 's/package.name = myapp/package.name = ufc_converter/' buildozer.spec
           sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,ffmpeg-python/' buildozer.spec
 
-      # 3. ★公式の自動ビルド部品を使って非rootで安全に実行（エラー回避の核心）
+      # 3. ★正しい名前（ArtemSBulgakov）に修正しました。これで一般ユーザーとして安全にビルドされます
       - name: Build APK with Buildozer Action
-        uses: ArtemSsh/buildozer-action@v1
+        uses: ArtemSBulgakov/buildozer-action@v1
         with:
           command: buildozer android debug
           repository_root: .
