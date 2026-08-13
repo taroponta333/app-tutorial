@@ -7,25 +7,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get Buildozer Docker Image
-        run: docker pull kivy/buildozer:latest
+      # 1. Python環境をセットアップ
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Build and Configure Universal Tools
+      # 2. 最初から全部盛り設定の buildozer.spec をその場で作ってしまう
+      - name: Create Buildozer Spec
         run: |
-          # 1. まずは設定ファイル（buildozer.spec）を正しく作成する
-          # 💡 手前に「-e BUILDOZER_ALLOW_KIVY_BUILD_FROM_ROOT=1」を足して、rootチェックを強制スルーさせます
-          docker run --rm -v ${{ github.workspace }}:/home/user/hostculand -w /home/user/hostculand -e BUILDOZER_ALLOW_KIVY_BUILD_FROM_ROOT=1 kivy/buildozer:latest init
-          
-          # 2. 作成された設定ファイルの中身を書き換える
+          pip install buildozer
+          buildozer init
           sed -i 's/package.domain = org.test/package.domain = com.universal.converter/' buildozer.spec
           sed -i 's/package.name = myapp/package.name = ufc_converter/' buildozer.spec
-          
-          # 全部盛り設定：画像(pillow) と 動画・音声(ffmpeg-python) を同時に組み込む
           sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,ffmpeg-python/' buildozer.spec
-          
-          # 3. 【本番】ここでも同様にrootチェックをスルーする設定を入れてビルドします
-          docker run --rm -v ${{ github.workspace }}:/home/user/hostculand -w /home/user/hostculand -e BUILDOZER_ALLOW_KIVY_BUILD_FROM_ROOT=1 kivy/buildozer:latest android debug
 
+      # 3. ★公式の自動ビルド部品を使って非rootで安全に実行（エラー回避の核心）
+      - name: Build APK with Buildozer Action
+        uses: ArtemSsh/buildozer-action@v1
+        with:
+          command: buildozer android debug
+          repository_root: .
+
+      # 4. 完成したAPKを提出
       - name: Upload Universal Converter APK
         uses: actions/upload-artifact@v4
         with:
