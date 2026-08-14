@@ -7,13 +7,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1. 必要最低限のシステム工具をインストール
+      # 1. システム工具のインストール
       - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libltdl-dev libffi-dev libssl-dev cmake
 
-      # 2. 一般ユーザー(builder)を作って超高速ビルドを実行
+      # 2. 一般ユーザー(builder)を作ってビルドを実行
       - name: Build APK as non-root user
         env:
           ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
@@ -24,8 +24,7 @@ jobs:
           sudo -u builder -i bash << 'EOF'
           cd $GITHUB_WORKSPACE
           
-          # 💡 【今回の勝利ポイント①】最新コンパイラ(Clang)の厳しいエラーチェックを全て無効化する魔法のフラグ
-          # 古いC言語の書き方（OpenSSLなど）をエラーにせず、警告(Warning)として無理やりスルーさせます。
+          # 最新コンパイラ(Clang)の厳しいエラーチェックを全て無効化
           export CFLAGS="-Wno-error=implicit-function-declaration -Wno-error=incompatible-pointer-types"
           export LDFLAGS="-Wno-error"
           
@@ -41,9 +40,16 @@ jobs:
           # 既製バイナリを使用（Pillowとffmpeg-pythonだけを材料にする）
           sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,ffmpeg-python/' buildozer.spec
           
-          # Android用のコンパイル済みFFmpegバイナリを直接アプリのlibsに投入
+          # 倉庫（libs）を作成
           mkdir -p libs/arm64-v8a
-          curl -L -o libs/arm64-v8a/libffmpeg.so https://github.com
+          
+          # 💡 【完全勝利の核心】あなたが選んだ大本命のリンクを、生のバイナリが取れる「raw」に変えて100%確実にcurlします！
+          URL_BASE="https://github.com"
+          URL_FILE="/raw/main/ffmpeg-9.0/libffmpeg.so"
+          URL="${URL_BASE}${URL_FILE}"
+          curl -L -o libs/arm64-v8a/libffmpeg.so "$URL"
+          
+          # buildozer.specに外部バイナリを埋め込む指示を出す
           sed -i 's/#android.add_libs_arm64_v8a =/android.add_libs_arm64_v8a = libs\/arm64-v8a\/libffmpeg.so/' buildozer.spec
           
           # 突っ切る！
