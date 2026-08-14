@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build 真UFC APK
 
 on:
   push:
@@ -35,11 +35,10 @@ jobs:
 
       - name: Android APK のビルド実行
         run: |
-          # 自動的に arm64 用の FFmpeg も一緒にビルドされます
           buildozer android debug
 
       - name: 完成した APK を保存 (Artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: OfflineConverter-arm64-APK
+          name: TrueUFC-arm64-APK
           path: bin/*.apk
