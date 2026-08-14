@@ -28,16 +28,21 @@ jobs:
             lzma lzma-dev tcl-dev tk-dev uuid-dev xvfb zlib1g-dev cython3 \
             openjdk-17-jdk zip unzip wget
 
-      # ★ ここがポイント！ 70MBのFFmpegをビルド時に直接取得する
+      # ★ Android(arm64-v8a)専用のFFmpegバイナリをffmpeg-kitから取得
       - name: FFmpeg (arm64-v8a) バイナリの自動取得
         run: |
-          echo "⬇️ Android(arm64)用FFmpegをダウンロード中..."
-          # BtbN氏の信頼できる事前ビルド済みFFmpeg staticバイナリを取得
-          wget https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.0-latest-android-arm64-v8a-gpl-7.0.tar.xz -O ffmpeg-android.tar.xz
-          tar -xf ffmpeg-android.tar.xz
-          # 展開されたフォルダから ffmpeg 実行ファイルだけをカレントディレクトリに抽出
-          cp ffmpeg-*-android-arm64-v8a-gpl-*/bin/ffmpeg ./ffmpeg
+          echo "⬇️ Android(arm64)用FFmpegバイナリを取得中..."
+          # ffmpeg-kit の Android用アーティファクト(arm64-v8a)を取得
+          wget https://github.com/arthenica/ffmpeg-kit/releases/download/v6.0/ffmpeg-kit-full-6.0-android-single-repo.zip -O ffmpeg-kit.zip
+          unzip -q ffmpeg-kit.zip -d ffmpeg-kit-extracted
+          
+          # arm64-v8a 用の libffmpeg.so（実質的なバイナリ）を配置
+          # ※Android ndkバイナリは .so 形式で入っているため抽出し実行権限を付与
+          find ffmpeg-kit-extracted -name "libffmpeg.so" | grep "arm64-v8a" | head -n 1 | xargs -I {} cp {} ./ffmpeg
           chmod +x ./ffmpeg
+          
+          # 一時ファイルの削除
+          rm -rf ffmpeg-kit.zip ffmpeg-kit-extracted
           echo "✅ FFmpegバイナリの配置完了！"
 
       - name: Buildozer と Cython のインストール
