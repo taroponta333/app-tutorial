@@ -1,78 +1,56 @@
-name: Build Universal Converter APK
-on: [push, workflow_dispatch]
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
+    runs-on: ubuntu-latest
 
-      # 1. システム工具のインストール
-      - name: Install System Dependencies
+    steps:
+      - name: リポジトリのチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python のセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 必要なシステム依存パッケージのインストール
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libltdl-dev libffi-dev libssl-dev cmake
+          sudo apt-get install -y \
+            build-essential git ffmpeg libssl-dev gdb lcov pkg-config \
+            libbz2-dev libffi-dev libgdbm-dev libgdbm-compat-dev liblzma-dev \
+            libncurses5-dev libreadline-dev libsqlite3-dev sqlite3 img2pdf \
+            lzma lzma-dev tcl-dev tk-dev uuid-dev xvfb zlib1g-dev cython3 \
+            openjdk-17-jdk zip unzip wget
 
-      # 2. 一般ユーザー(builder)を作ってビルドを実行
-      # 2. 一般ユーザー(builder)を作ってビルドを実行
-      - name: Build APK as non-root user
-        env:
-          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+      # ★ ここがポイント！ 70MBのFFmpegをビルド時に直接取得する
+      - name: FFmpeg (arm64-v8a) バイナリの自動取得
         run: |
-          sudo useradd -m builder
-          sudo chown -R builder:builder $GITHUB_WORKSPACE
-          
-          sudo -u builder -i bash << 'EOF'
-          cd $GITHUB_WORKSPACE
-          
-          # 最新コンパイラ(Clang)の厳しいエラーチェックを無効化
-          export CFLAGS="-Wno-error=implicit-function-declaration -Wno-error=incompatible-pointer-types"
-          export LDFLAGS="-Wno-error"
-          
-          # BuildozerとCythonのインストール
-          pip3 install --user buildozer cython
-          export PATH=$PATH:/home/builder/.local/bin
-          
-          # 1. sedの書き換え失敗を防ぐため、1から完璧な spec ファイルを直接生成する
-          cat << 'SPEC' > buildozer.spec
-          [app]
-          title = Universal Format Converter
-          package.name = ufc_converter
-          package.domain = com.universal.converter
-          source.dir = .
-          source.include_exts = py,png,jpg,kv,atlas
-          version = 1.0.0
+          echo "⬇️ Android(arm64)用FFmpegをダウンロード中..."
+          # BtbN氏の信頼できる事前ビルド済みFFmpeg staticバイナリを取得
+          wget https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.0-latest-android-arm64-v8a-gpl-7.0.tar.xz -O ffmpeg-android.tar.xz
+          tar -xf ffmpeg-android.tar.xz
+          # 展開されたフォルダから ffmpeg 実行ファイルだけをカレントディレクトリに抽出
+          cp ffmpeg-*-android-arm64-v8a-gpl-*/bin/ffmpeg ./ffmpeg
+          chmod +x ./ffmpeg
+          echo "✅ FFmpegバイナリの配置完了！"
 
-          # 依存関係
-          requirements = python3,kivy,pillow,pyjnius
+      - name: Buildozer と Cython のインストール
+        run: |
+          pip install --upgrade pip
+          pip install buildozer cython==0.29.33
 
-          # FFmpeg-Kit (arm64 用のネイティブバイナリ)
-          android.gradle_dependencies = com.arthenica:ffmpeg-kit-full:5.1
-
-          # Target Architectures
-          android.archs = arm64-v8a
-
-          # API & Permissions
-          android.api = 33
-          android.minapi = 24
-          android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
-
-          # SDKライセンスを自動承諾（yes コマンドを使わないための設定）
-          android.accept_sdk_license = True
-          android.skip_update = False
-
-          [buildozer]
-          log_level = 2
-          warn_on_root = 1
-          SPEC
-
-          # 2. yes パイプを使わずにビルドを実行！
+      - name: Android APK のビルド実行
+        run: |
           buildozer android debug
-          EOF
-          
-      # 3. 完成したAPKを提出
-      - name: Upload Universal Converter APK
+
+      - name: 完成した APK を保存 (Artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: UFC-Universal-Converter-APK
+          name: OfflineConverter-arm64-APK
           path: bin/*.apk
