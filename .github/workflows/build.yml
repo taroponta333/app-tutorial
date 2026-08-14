@@ -38,13 +38,19 @@ jobs:
           # 既製バイナリを使用（Pillowとffmpeg-pythonだけを材料にする）
           sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,ffmpeg-python/' buildozer.spec
           
-          # Android用のコンパイル済みFFmpegバイナリを直接アプリのlibsに投入
-          mkdir -p libs/arm64-v8a
-          curl -L -o libs/arm64-v8a/libffmpeg.so https://github.com
-          sed -i 's/#android.add_libs_arm64_v8a =/android.add_libs_arm64_v8a = libs\/arm64-v8a\/libffmpeg.so/' buildozer.spec
+          # NOTE: The previous workflow downloaded from "https://github.com" (invalid) and saved HTML.
+          # If you want to bundle a prebuilt Android libffmpeg, replace the URL below with a correct direct binary.
+          # mkdir -p libs/arm64-v8a
+          # curl -L -o libs/arm64-v8a/libffmpeg.so https://your-correct-url-to-libffmpeg.so
+          # sed -i 's/#android.add_libs_arm64_v8a =/android.add_libs_arm64_v8a = libs\/arm64-v8a\/libffmpeg.so/' buildozer.spec
           
-          # 突っ切る！
-          yes | buildozer android debug
+          # If sdkmanager is installed, accept licenses non-interactively before running buildozer
+          if command -v sdkmanager >/dev/null 2>&1; then
+            yes | sdkmanager --licenses || true
+          fi
+          
+          # Run buildozer directly (do not pipe from `yes` — that hides the real error)
+          buildozer android debug
           EOF
 
       # 3. 完成したAPKを提出
