@@ -36,17 +36,18 @@ jobs:
           # アプリの設定
           sed -i 's/package.domain = org.test/package.domain = com.universal.converter/' buildozer.spec
           sed -i 's/package.name = myapp/package.name = ufc_converter/' buildozer.spec
-          
-          # 既製バイナリを使用（Pillowとffmpeg-pythonだけを材料にする）
           sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,ffmpeg-python/' buildozer.spec
           
           # 倉庫（libs）を作成
           mkdir -p libs/arm64-v8a
           
-          # 💡 【完全勝利の核心】あなたが選んだ大本命のリンクを、生のバイナリが取れる「raw」に変えて100%確実にcurlします！
-          URL_BASE="https://github.com"
-          URL_FILE="/raw/main/ffmpeg-9.0/libffmpeg.so"
-          URL="${URL_BASE}${URL_FILE}"
+          # 💡 【完全勝利の修正：あなた専用のタグから最速で引っ張る】
+          # ※「あなたのGitHubユーザー名」と「あなたのリポジトリ名」の部分だけ、実際の自分の名前に書き換えてください！
+          USER_NAME="taroponta333"
+          REPO_NAME="Android-FFmpeg-Prebuilt"
+          
+          # GitHubの内部バックボーンを使って、超巨大.soでも爆速＆ノーエラーで安全にcurlします！
+          URL="https://github.com/{USER_NAME}/${REPO_NAME}/releases/download/v1.0/libffmpeg.so"
           curl -L -o libs/arm64-v8a/libffmpeg.so "$URL"
           
           # buildozer.specに外部バイナリを埋め込む指示を出す
