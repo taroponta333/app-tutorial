@@ -1,78 +1,66 @@
-name: Build Android APK
-
-on:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
+name: Build Universal Converter APK
+on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-22.04
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Install System & Build Dependencies
+      # 1. システム工具のインストール
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
-          pip install --upgrade pip setuptools
-          pip install buildozer cython
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libltdl-dev libffi-dev libssl-dev cmake
 
-      - name: Generate buildozer.spec
+      # 2. 一般ユーザー(builder)を作ってビルドを実行
+      - name: Build APK as non-root user
+        env:
+          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
         run: |
-          cat << 'EOF' > buildozer.spec
-          [app]
-          title = Universal Format Converter
-          package.name = ufc
-          package.domain = org.ufc.app
-          source.dir = .
-          source.include_exts = py,png,jpg,kv,atlas
-          version = 1.0.0
-
-          # Python & Java dependencies
-          requirements = python3,kivy,pillow,pyjnius
-
-          # FFmpeg-Kit AAR Integration (embedded ffmpeg arm64 binary)
-          android.gradle_dependencies = com.arthenica:ffmpeg-kit-full:5.1
-
-          # Target Architectures
-          android.archs = arm64-v8a, armeabi-v7a
-
-          # API & Permissions
-          android.api = 33
-          android.minapi = 24
-          android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
-
-          # Auto accept SDK licenses
-          android.accept_sdk_license = True
-          android.skip_update = False
-
-          [buildozer]
-          log_level = 2
-          warn_on_root = 1
+          sudo useradd -m builder
+          sudo chown -R builder:builder $GITHUB_WORKSPACE
+          
+          sudo -u builder -i bash << 'EOF'
+          cd $GITHUB_WORKSPACE
+          
+          # 最新コンパイラ(Clang)の厳しいエラーチェックを無効化
+          export CFLAGS="-Wno-error=implicit-function-declaration -Wno-error=incompatible-pointer-types"
+          export LDFLAGS="-Wno-error"
+          
+          # BuildozerとCythonのインストール
+          pip3 install --user buildozer cython
+          export PATH=$PATH:/home/builder/.local/bin
+          
+          # buildozer.spec の初期生成
+          buildozer init
+          
+          # 1. アプリ基本情報の設定
+          sed -i 's/title = My Application/title = Universal Format Converter/' buildozer.spec
+          sed -i 's/package.name = myapp/package.name = ufc_converter/' buildozer.spec
+          sed -i 's/package.domain = org.test/package.domain = com.universal.converter/' buildozer.spec
+          
+          # 2. 必要なPythonパッケージ（Kivy, Pillow, PyJNIus）の設定
+          sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,pyjnius/' buildozer.spec
+          
+          # 3. APK内部に arm64 用 FFmpeg ライブラリ (ffmpeg-kit) を自動パッキング
+          sed -i 's/#android.gradle_dependencies =/android.gradle_dependencies = com.arthenica:ffmpeg-kit-full:5.1/' buildozer.spec
+          
+          # 4. アーキテクチャを arm64-v8a に指定
+          sed -i 's/android.archs = arm64-v8a, armeabi-v7a/android.archs = arm64-v8a/' buildozer.spec
+          
+          # 5. APIレベルとストレージ権限の設定
+          sed -i 's/# android.api = 31/android.api = 33/' buildozer.spec
+          sed -i 's/# android.minapi = 21/android.minapi = 24/' buildozer.spec
+          sed -i 's/#android.permissions =/android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE/' buildozer.spec
+          
+          # 突っ切る！ (ライセンス自動同意 & ビルド実行)
+          yes | buildozer android debug
           EOF
 
-      - name: Build APK
-        run: |
-          buildozer -v android debug
-
-      - name: Upload APK Artifact
+      # 3. 完成したAPKを提出
+      - name: Upload Universal Converter APK
         uses: actions/upload-artifact@v4
         with:
-          name: UFC-arm64-debug-apk
+          name: UFC-Universal-Converter-APK
           path: bin/*.apk
