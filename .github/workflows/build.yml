@@ -28,23 +28,6 @@ jobs:
             lzma lzma-dev tcl-dev tk-dev uuid-dev xvfb zlib1g-dev cython3 \
             openjdk-17-jdk zip unzip wget
 
-      # ★ Android(arm64-v8a)専用のFFmpegバイナリをffmpeg-kitから取得
-      - name: FFmpeg (arm64-v8a) バイナリの自動取得
-        run: |
-          echo "⬇️ Android(arm64)用FFmpegバイナリを取得中..."
-          # ffmpeg-kit の Android用アーティファクト(arm64-v8a)を取得
-          wget https://github.com/arthenica/ffmpeg-kit/releases/download/v6.0/ffmpeg-kit-full-6.0-android-single-repo.zip -O ffmpeg-kit.zip
-          unzip -q ffmpeg-kit.zip -d ffmpeg-kit-extracted
-          
-          # arm64-v8a 用の libffmpeg.so（実質的なバイナリ）を配置
-          # ※Android ndkバイナリは .so 形式で入っているため抽出し実行権限を付与
-          find ffmpeg-kit-extracted -name "libffmpeg.so" | grep "arm64-v8a" | head -n 1 | xargs -I {} cp {} ./ffmpeg
-          chmod +x ./ffmpeg
-          
-          # 一時ファイルの削除
-          rm -rf ffmpeg-kit.zip ffmpeg-kit-extracted
-          echo "✅ FFmpegバイナリの配置完了！"
-
       - name: Buildozer と Cython のインストール
         run: |
           pip install --upgrade pip
@@ -52,6 +35,7 @@ jobs:
 
       - name: Android APK のビルド実行
         run: |
+          # 自動的に arm64 用の FFmpeg も一緒にビルドされます
           buildozer android debug
 
       - name: 完成した APK を保存 (Artifact)
