@@ -1,65 +1,78 @@
-name: Build Universal Converter APK
-on: [push, workflow_dispatch]
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
+    runs-on: ubuntu-latest
 
-      # 1. システム工具のインストール
-      - name: Install System Dependencies
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install System & Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libltdl-dev libffi-dev libssl-dev cmake
+          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          pip install --upgrade pip setuptools
+          pip install buildozer cython
 
-      # 2. 一般ユーザー(builder)を作ってビルドを実行
-      - name: Build APK as non-root user
-        env:
-          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+      - name: Generate buildozer.spec
         run: |
-          sudo useradd -m builder
-          sudo chown -R builder:builder $GITHUB_WORKSPACE
-          
-          sudo -u builder -i bash << 'EOF'
-          cd $GITHUB_WORKSPACE
-          
-          # 最新コンパイラ(Clang)の厳しいエラーチェックを全て無効化
-          export CFLAGS="-Wno-error=implicit-function-declaration -Wno-error=incompatible-pointer-types"
-          export LDFLAGS="-Wno-error"
-          
-          pip3 install --user buildozer cython
-          export PATH=$PATH:/home/builder/.local/bin
-          
-          buildozer init
-          
-          # アプリの設定
-          sed -i 's/package.domain = org.test/package.domain = com.universal.converter/' buildozer.spec
-          sed -i 's/package.name = myapp/package.name = ufc_converter/' buildozer.spec
-          sed -i 's/requirements = python3,kivy/requirements = python3,kivy,pillow,ffmpeg-python/' buildozer.spec
-          
-          # 倉庫（libs）を作成
-          mkdir -p libs/arm64-v8a
-          
-          # 💡 【完全勝利の修正：あなた専用のタグから最速で引っ張る】
-          # ※「あなたのGitHubユーザー名」と「あなたのリポジトリ名」の部分だけ、実際の自分の名前に書き換えてください！
-          USER_NAME="taroponta333"
-          REPO_NAME="Android-FFmpeg-Prebuilt"
-          
-          # GitHubの内部バックボーンを使って、超巨大.soでも爆速＆ノーエラーで安全にcurlします！
-          URL="https://github.com/{USER_NAME}/${REPO_NAME}/releases/download/v1.0/libffmpeg.so"
-          curl -L -o libs/arm64-v8a/libffmpeg.so "$URL"
-          
-          # buildozer.specに外部バイナリを埋め込む指示を出す
-          sed -i 's/#android.add_libs_arm64_v8a =/android.add_libs_arm64_v8a = libs\/arm64-v8a\/libffmpeg.so/' buildozer.spec
-          
-          # 突っ切る！
-          yes | buildozer android debug
+          cat << 'EOF' > buildozer.spec
+          [app]
+          title = Universal Format Converter
+          package.name = ufc
+          package.domain = org.ufc.app
+          source.dir = .
+          source.include_exts = py,png,jpg,kv,atlas
+          version = 1.0.0
+
+          # Python & Java dependencies
+          requirements = python3,kivy,pillow,pyjnius
+
+          # FFmpeg-Kit AAR Integration (embedded ffmpeg arm64 binary)
+          android.gradle_dependencies = com.arthenica:ffmpeg-kit-full:5.1
+
+          # Target Architectures
+          android.archs = arm64-v8a, armeabi-v7a
+
+          # API & Permissions
+          android.api = 33
+          android.minapi = 24
+          android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
+
+          # Auto accept SDK licenses
+          android.accept_sdk_license = True
+          android.skip_update = False
+
+          [buildozer]
+          log_level = 2
+          warn_on_root = 1
           EOF
 
-      # 3. 完成したAPKを提出
-      - name: Upload Universal Converter APK
+      - name: Build APK
+        run: |
+          buildozer -v android debug
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: UFC-Universal-Converter-APK
+          name: UFC-arm64-debug-apk
           path: bin/*.apk
