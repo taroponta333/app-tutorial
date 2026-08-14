@@ -12,9 +12,14 @@ version = 0.1
 
 # 必要なライブラリ
 requirements = python3,kivy
+# ffmpeg を要件に追加！これでBuildozerが勝手に組み込んでくれます
+requirements = python3,kivy,ffmpeg
 
 # 画面の向き（縦画面固定）
 orientation = portrait
+
+# アプリのアイコン画像ファイルを指定
+icon.filename = %(source.dir)s/icon.png
 
 # ターゲットアーキテクチャ (arm64 のみにしてビルド時間を短縮)
 android.archs = arm64-v8a
